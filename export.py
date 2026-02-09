@@ -382,23 +382,11 @@ def series_to_jsonld(series) -> Dict[str, Any]:
 def inventory_to_jsonld(inventory) -> Dict[str, Any]:
     inv_id = f"https://data.globalise.huygens.nl/hdl:20.500.14722/inventory/{inventory.inventory_number}"
 
-    # Title from earliest/latest dates or first title record
-    title_content: Optional[str] = None
-    if (getattr(inventory, "date_start", None) is not None) and (
-        getattr(inventory, "date_end", None) is not None
-    ):
-        title_content = f"{inventory.date_start} - {inventory.date_end}"
-    elif getattr(inventory, "date_start", None) is not None:
-        title_content = f"From {inventory.date_start}"
-    elif getattr(inventory, "date_end", None) is not None:
-        title_content = f"Until {inventory.date_end}"
-    if not title_content and getattr(inventory, "titles", None):
-        if inventory.titles:
-            title_content = inventory.titles[0].title
-
-    title_obj = None
-    if title_content:
-        title_obj = {"type": "Title", "content": title_content}
+    # Include all titles from inventory
+    title_obj = []
+    if getattr(inventory, "titles", None) and inventory.titles:
+        for title in inventory.titles:
+            title_obj.append({"type": "Title", "content": title.title})
 
     # Timespan
     timespan = None
