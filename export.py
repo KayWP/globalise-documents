@@ -630,9 +630,7 @@ def inventory_to_manifest_jsonld(inventory, manifest_uri: str) -> Dict[str, Any]
                 if nai.startswith("http://") or nai.startswith("https://"):
                     web_url = nai
 
-            label_text = (
-                scan.filename if not rv_label else f"{scan.filename} ({rv_label})"
-            )
+            label_text = scan.filename
 
             canvas_obj: Dict[str, Any] = {
                 "id": canvas_id,
