@@ -98,7 +98,9 @@ def scan_to_jsonld(scan) -> Dict[str, Any]:
 
 def page_to_jsonld(page) -> Dict[str, Any]:
     # Compose the id using a placeholder pattern; adjust as needed for your real IDs
-    page_id_url = f"https://data.globalise.huygens.nl/hdl:20.500.14722/document/doc1-physical/{page.id}"
+    page_id_url = (
+        f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/document:{page.id}"
+    )
     # Determine recto/verso classification id and label
     if page.recto_verso == RectoVerso.RECTO:
         classification_id = "http://vocab.getty.edu/aat/300078817"  # Recto
@@ -159,19 +161,19 @@ def page_to_jsonld(page) -> Dict[str, Any]:
 
 
 def document_physical_to_jsonld(document) -> Dict[str, Any]:
-    base_id = f"https://data.globalise.huygens.nl/hdl:20.500.14722/document/{document.id}-physical"
+    base_id = f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/document:{document.id}"
     # Classification from first document type if available
     if document.document_types:
         doc_type_str = document.document_types[0].document_type
         doc_type_slug = slugify(doc_type_str)
         classified = {
-            "id": f"https://data.globalise.huygens.nl/hdl:20.500.14722/concept/documenttype/{doc_type_slug}",
+            "id": f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/thesaurus:{doc_type_slug}",
             "type": "Type",
             "_label": f"{doc_type_str} (document type)",
         }
     else:
         classified = {
-            "id": "https://data.globalise.huygens.nl/hdl:20.500.14722/concept/documenttype/unknown",
+            "id": "https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/thesaurus:unknown",
             "type": "Type",
             "_label": "Unknown document type",
         }
@@ -247,7 +249,7 @@ def document_physical_to_jsonld(document) -> Dict[str, Any]:
 
             # Create detailed part with carries and shows
             part: Dict[str, Any] = {
-                "id": f"https://data.globalise.huygens.nl/hdl:20.500.14722/document/{document.id}-physical/page/{pg.id}",
+                "id": f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/document:{document.id}#page:{pg.id}",
                 "type": "PhysicalHumanMadeThing",
                 "_label": label,
                 "classified_as": {
@@ -317,7 +319,9 @@ def document_physical_to_jsonld(document) -> Dict[str, Any]:
 
 
 def series_to_jsonld(series) -> Dict[str, Any]:
-    series_id = f"https://data.globalise.huygens.nl/hdl:20.500.14722/series/{series.id}"
+    series_id = (
+        f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/series:{series.id}"
+    )
 
     # Determine classification based on hierarchy level
     # If it has a parent, it's likely a sub-grouping; otherwise a top-level grouping
@@ -355,7 +359,7 @@ def series_to_jsonld(series) -> Dict[str, Any]:
         parent = series.part_of
         member_of = [
             {
-                "id": f"https://data.globalise.huygens.nl/hdl:20.500.14722/series/{parent.id}",
+                "id": f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/series:{parent.id}",
                 "type": "Set",
                 "_label": parent.title,
             }
@@ -380,7 +384,7 @@ def series_to_jsonld(series) -> Dict[str, Any]:
 
 
 def inventory_to_jsonld(inventory) -> Dict[str, Any]:
-    inv_id = f"https://data.globalise.huygens.nl/hdl:20.500.14722/inventory/{inventory.inventory_number}"
+    inv_id = f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/inventory:{inventory.inventory_number}"
 
     # Include all titles from inventory
     title_obj = []
@@ -446,7 +450,7 @@ def inventory_to_jsonld(inventory) -> Dict[str, Any]:
         node: Optional[Dict[str, Any]] = None
         for series_obj in reversed(chain):
             current_node: Dict[str, Any] = {
-                # "id": f"https://data.globalise.huygens.nl/hdl:20.500.14722/series/{series_obj.id}",
+                # "id": f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/series:{series_obj.id}",
                 "type": "Set",
                 "_label": series_obj.title,
             }
@@ -520,7 +524,7 @@ def inventory_to_jsonld(inventory) -> Dict[str, Any]:
                             # }
                             inventory_to_manifest_jsonld(
                                 inventory,
-                                manifest_uri=f"https://data.globalise.huygens.nl/hdl:20.500.14722/inventory:{inventory.inventory_number}.manifest",
+                                manifest_uri=f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/inventory:{inventory.inventory_number}.manifest",
                             )
                         ],
                         "conforms_to": [
@@ -586,7 +590,7 @@ def inventory_to_manifest_jsonld(inventory, manifest_uri: str) -> Dict[str, Any]
             }
         ],
         "items": [],
-        "seeAlso": f"https://data.globalise.huygens.nl/hdl:20.500.14722/inventory/{inventory.inventory_number}",
+        "seeAlso": f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/inventory:{inventory.inventory_number}",
     }
 
     # Add navDate if inventory has date information
@@ -600,7 +604,7 @@ def inventory_to_manifest_jsonld(inventory, manifest_uri: str) -> Dict[str, Any]
         # Sort scans by filename for consistent ordering
         sorted_scans = sorted(inventory.scans, key=lambda s: s.filename or "")
         for scan in sorted_scans:
-            canvas_id = f"https://data.globalise.huygens.nl/hdl:20.500.14722/canvas:{scan.filename}"
+            canvas_id = f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/canvas:{scan.filename}"
             # Determine recto/verso from related pages, if present
             rv_label = None
             if getattr(scan, "pages", None):
@@ -646,11 +650,11 @@ def inventory_to_manifest_jsonld(inventory, manifest_uri: str) -> Dict[str, Any]
                 ],
                 "items": [
                     {
-                        "id": f"https://data.globalise.huygens.nl/hdl:20.500.14722/annotations:painting:{scan.filename}",
+                        "id": f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/annotations:painting:{scan.filename}",
                         "type": "AnnotationPage",
                         "items": [
                             {
-                                "id": f"https://data.globalise.huygens.nl/hdl:20.500.14722/annotations:painting:{scan.filename}#annotation:1",
+                                "id": f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/annotations:painting:{scan.filename}#annotation",
                                 "type": "Annotation",
                                 "motivation": "painting",
                                 "body": {
@@ -662,8 +666,8 @@ def inventory_to_manifest_jsonld(inventory, manifest_uri: str) -> Dict[str, Any]
                                     "service": [
                                         {
                                             "id": service_id,
-                                            "type": "ImageService2",
-                                            "profile": "http://iiif.io/api/image/2/level1.json",
+                                            "type": "ImageService3",
+                                            "profile": "level2",
                                         }
                                     ],
                                 },
@@ -674,6 +678,26 @@ def inventory_to_manifest_jsonld(inventory, manifest_uri: str) -> Dict[str, Any]
                 ],
                 "annotations": [],
             }
+
+            # Add annotation pages for transcriptions and entities (only if scan is not blank)
+            scan_is_blank = False
+            if getattr(scan, "pages", None):
+                scan_is_blank = all(getattr(p, "is_blank", False) for p in scan.pages)
+            if not scan_is_blank:
+                canvas_obj["annotations"] = [
+                    {
+                        "id": f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/annotations:transcriptions:{scan.filename}",
+                        "type": "AnnotationPage",
+                        "label": {"en": [f"Transcriptions of scan {scan.filename}"]},
+                    },
+                    {
+                        "id": f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/annotations:entities:{scan.filename}",
+                        "type": "AnnotationPage",
+                        "label": {
+                            "en": [f"Entities identified on scan {scan.filename}"]
+                        },
+                    },
+                ]
 
             # Optional metadata: Web link and Recto/Verso info
             if web_url:
@@ -726,7 +750,7 @@ def inventory_to_manifest_jsonld(inventory, manifest_uri: str) -> Dict[str, Any]
     if getattr(inventory, "documents", None):
         # Create a top-level Range for table of contents
         top_range: Dict[str, Any] = {
-            "id": f"https://data.globalise.huygens.nl/hdl:20.500.14722/inventory:{inventory.inventory_number}.manifest/range/top",
+            "id": f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/inventory:{inventory.inventory_number}.manifest/range/top",
             "type": "Range",
             "label": {"en": ["Table of Contents"], "nl": ["Inhoudsopgave"]},
             "items": [],
@@ -757,7 +781,7 @@ def inventory_to_manifest_jsonld(inventory, manifest_uri: str) -> Dict[str, Any]
                 label_text = f"Document {doc.id[:8]}"
 
             doc_range: Dict[str, Any] = {
-                "id": f"https://data.globalise.huygens.nl/hdl:20.500.14722/inventory:{inventory.inventory_number}.manifest/range/{range_id_suffix}",
+                "id": f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/inventory:{inventory.inventory_number}.manifest/range/{range_id_suffix}",
                 "type": "Range",
                 "label": {"en": [label_text]},
                 "metadata": [],
@@ -866,7 +890,7 @@ def inventory_to_manifest_jsonld(inventory, manifest_uri: str) -> Dict[str, Any]
                         page = link.page
                         if page.scan:
                             # Reference the canvas by scan identifier
-                            canvas_id = f"https://data.globalise.huygens.nl/hdl:20.500.14722/canvas:{page.scan.filename}"
+                            canvas_id = f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/canvas:{page.scan.filename}"
                             # Only add if not already in the list
                             if canvas_id not in seen_canvas_ids:
                                 seen_canvas_ids.add(canvas_id)

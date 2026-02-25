@@ -767,7 +767,7 @@ def inventory_manifest(inventory_number):
         db_session.query(Inventory).filter_by(inventory_number=inventory_number)
     )
 
-    manifest_uri = request.url
+    manifest_uri = f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/inventory:{inventory_number}.manifest"
 
     data = inventory_to_manifest_jsonld(inventory, manifest_uri)
 
