@@ -205,3 +205,8 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# large data files
+data/*.csv
+data/*.json
+!data/inventories.json
