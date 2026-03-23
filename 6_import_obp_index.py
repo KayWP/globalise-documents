@@ -108,6 +108,20 @@ def int_or_none(value) -> Optional[str]:
         return None
 
 
+PLACEHOLDER_VALUES = {"#name", "-"}
+
+
+def is_placeholder(value) -> bool:
+    """
+    Return True if a cell value is an Excel error or a dash standing in for
+    'no value' — specifically '#NAME?' (Excel formula error) and '-'.
+    These rows should be skipped entirely during import.
+    """
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return False
+    return str(value).strip().lower().rstrip("?") in PLACEHOLDER_VALUES
+
+
 def parse_type_uris(raw) -> list[str]:
     """
     Split a semicolon-separated list of PoolParty URIs and return the UUID
@@ -262,6 +276,13 @@ def main():
         doc_ext_id_rows: list[dict] = []
 
         for _, row in df.iterrows():
+            # Skip rows where the document type is a placeholder value
+            # ('#NAME?' is an Excel formula error; '-' means no value)
+            tanap_raw = row.get("DOCUMENT TYPE URI (TANAP)")
+            globalise_raw = row.get("DOCUMENT TYPE URI (GLOBALISE)")
+            if is_placeholder(tanap_raw) or is_placeholder(globalise_raw):
+                continue
+
             inv_number = str(int(row["INVENTORY NUMBER"]))
             inv_id = inventories.get(inv_number)
             if not inv_id:
