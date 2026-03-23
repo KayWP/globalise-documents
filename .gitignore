@@ -208,3 +208,11 @@ __marimo__/
 /data
 globalise_documents.db
 /data
+
+# large data files
+data/*.csv
+data/*.json
+!data/inventories.json
+
+# ignore database
+globalise_documents.db
