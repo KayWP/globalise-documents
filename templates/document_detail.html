@@ -68,11 +68,18 @@ else 'Document' }} - GLOBALISE Documents{% endblock %} {% block content %}
   {% endif %}
 </div>
 
-{% if document.document_types %}
+{% if document.document_types or document.document_types_linked %}
 <div class="card">
   <h2>Document Types</h2>
+  {% for dt in document.document_types_linked %}
+  <span class="badge badge-primary"
+    title="{{ dt.document_type.scheme }} concept">
+    {{ dt.document_type.pref_label_en or dt.document_type.pref_label_nl or dt.document_type.id }}
+    <small>({{ dt.document_type.scheme }})</small>
+  </span>
+  {% endfor %}
   {% for dt in document.document_types %}
-  <span class="badge badge-primary">{{ dt.document_type }}</span>
+  <span class="badge badge-secondary">{{ dt.document_type }}</span>
   {% endfor %}
 </div>
 {% endif %} {% if sub_documents %}

@@ -1,6 +1,8 @@
 """
-SQLAlchemy models converted from Django models.
-Focuses on document-related entities: Inventory, Document, Scan, Page
+SQLAlchemy models for the GLOBALISE document archive.
+
+Entities: Series, Inventory, Document, Scan, Page, DocumentType
+and the junction / helper tables that connect them.
 """
 
 import uuid
@@ -184,9 +186,13 @@ class Document(Base):
     sub_documents: Mapped[List["Document"]] = relationship(
         "Document", foreign_keys="Document.part_of_id", back_populates="part_of"
     )
+    
     document_types: Mapped[List["Document2Type"]] = relationship(
         "Document2Type", back_populates="document", cascade="all, delete-orphan"
     )
+    document_types_linked: Mapped[List["Document2DocumentType"]] = relationship(
+        "Document2DocumentType", back_populates="document", cascade="all, delete-orphan"
+    )  # Links to DocumentType via Document2DocumentType
     external_ids: Mapped[List["Document2ExternalID"]] = relationship(
         "Document2ExternalID", back_populates="document", cascade="all, delete-orphan"
     )
@@ -278,6 +284,76 @@ class Document2ExternalID(Base):
         return f"<Document2ExternalID(document_id='{self.document_id}')>"
 
 
+class DocumentType(Base):
+    """A document-type concept drawn from the GLOBALISE/TANAP SKOS thesaurus."""
+
+    __tablename__ = "document_type"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, comment="UUID extracted from the concept URI"
+    )
+    scheme: Mapped[str] = mapped_column(
+        String(16), index=True, comment="GLOBALISE or TANAP"
+    )
+    pref_label_nl: Mapped[Optional[str]] = mapped_column(
+        Text, comment="Dutch skos:prefLabel"
+    )
+    pref_label_en: Mapped[Optional[str]] = mapped_column(
+        Text, comment="English skos:prefLabel"
+    )
+
+    # Relationships
+    document_links: Mapped[List["Document2DocumentType"]] = relationship(
+        "Document2DocumentType", back_populates="document_type"
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<DocumentType(id='{self.id}', scheme='{self.scheme}', "
+            f"nl='{self.pref_label_nl}', en='{self.pref_label_en}')>"
+        )
+
+    def __str__(self) -> str:
+        label = self.pref_label_en or self.pref_label_nl or self.id
+        return f"{label} [{self.scheme}]"
+
+
+class Document2DocumentType(Base):
+    """
+    Junction table linking a Document to a DocumentType concept from the thesaurus.
+
+    Replaces the legacy free-text Document2Type for cases where a structured
+    URI-based type is available (TANAP or GLOBALISE concept schemes).
+    """
+
+    __tablename__ = "document2documenttype"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    document_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("document.id"), index=True
+    )
+    document_type_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("document_type.id"), index=True
+    )
+
+    # Relationships
+    document: Mapped["Document"] = relationship(
+        "Document", back_populates="document_types_linked"
+    )
+    document_type: Mapped["DocumentType"] = relationship(
+        "DocumentType", back_populates="document_links"
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<Document2DocumentType("
+            f"document_id='{self.document_id}', "
+            f"document_type_id='{self.document_type_id}')>"
+        )
+
+
 class PageType(str, enum.Enum):
     SINGLE = "Single"
     DOUBLE = "Double"
@@ -329,33 +405,6 @@ class RectoVerso(str, enum.Enum):
     RECTO = "Recto"
     VERSO = "Verso"
 
-class DocumentType(Base):
-    """A document-type concept drawn from the GLOBALISE/TANAP SKOS thesaurus."""
- 
-    __tablename__ = "document_type"
- 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, comment="UUID extracted from the concept URI"
-    )
-    scheme: Mapped[str] = mapped_column(
-        String(16), index=True, comment="GLOBALISE or TANAP"
-    )
-    pref_label_nl: Mapped[str | None] = mapped_column(
-        Text, comment="Dutch skos:prefLabel"
-    )
-    pref_label_en: Mapped[str | None] = mapped_column(
-        Text, comment="English skos:prefLabel"
-    )
- 
-    def __repr__(self) -> str:
-        return (
-            f"<DocumentType(id='{self.id}', scheme='{self.scheme}', "
-            f"nl='{self.pref_label_nl}', en='{self.pref_label_en}')>"
-        )
- 
-    def __str__(self) -> str:
-        label = self.pref_label_en or self.pref_label_nl or self.id
-        return f"{label} [{self.scheme}]"
 
 class Page(Base):
     __tablename__ = "page"

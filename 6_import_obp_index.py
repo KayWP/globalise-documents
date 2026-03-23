@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
 Import GLOBALISE Digitized Indexes of the Dutch East India Company OBP (1602–1799)
-from the Excel spreadsheet into the SQLAlchemy database.
+from the CSV spreadsheet into the SQLAlchemy database.
 
-This is import script #5 in the sequence. Scripts 1–4 must have been run first so
-that Inventory records already exist in the database.
+This is import script #6 in the sequence. Scripts 1–5 must have been run first so
+that Inventory and DocumentType records already exist in the database.
 
 Column mapping
 ──────────────
@@ -15,13 +15,15 @@ Mapped:
                                           Document.date_latest_begin  (Dec 31)
   YEAR (LATEST)                        → Document.date_earliest_end  (Jan 1) /
                                           Document.date_latest_end    (Dec 31)
-  DOCUMENT TYPE (TANAP)                → Document2Type rows (split on ";")
+  DOCUMENT TYPE URI (TANAP)            → Document2DocumentType rows (UUIDs extracted
+  DOCUMENT TYPE URI (GLOBALISE)          from PoolParty URIs, split on ";")
   ID                                   → ExternalID(context="OBP_INDEX")
   ID (TANAP)                           → ExternalID(context="TANAP")           [nullable]
   ID (DIGITIZED TYPOSCRIPTS)           → ExternalID(context="DIGITIZED TYPOSCRIPTS") [nullable]
 
 Not mapped (no corresponding schema field):
   SECTION
+  DOCUMENT TYPE (TANAP)                (legacy label column — superseded by URI columns)
   FOLIONUMBER (START / END OF DOCUMENT)
   FOLIONUMBERS (AS THEY APPEAR IN TYPOSCRIPT)
   YEARS (ALL)
@@ -44,7 +46,7 @@ from sqlalchemy.orm import Session
 from models import (
     Base,
     Document,
-    Document2Type,
+    Document2DocumentType,
     Document2ExternalID,
     DocumentIdentificationMethod,
     ExternalID,
@@ -64,14 +66,13 @@ SHEET_NAME = "Digitized Indexes "
 METHOD_NAME = "TANAP Digitized Index"
 BATCH_SIZE = 5_000
 
-
 CSV_PATH = os.path.join(
     SCRIPT_DIR,
     "data",
     "globalise_digitized_indexes.csv",
 )
 
-# ── helpers ──────────────────────────────────────────────────────────────────
+# ── helpers ───────────────────────────────────────────────────────────────────
 
 def year_to_start(year) -> Optional[date]:
     """Convert an integer year to Jan 1 of that year."""
@@ -107,14 +108,32 @@ def int_or_none(value) -> Optional[str]:
         return None
 
 
-def parse_document_types(raw) -> list[str]:
+def parse_type_uris(raw) -> list[str]:
     """
-    Split the DOCUMENT TYPE (TANAP) compound string into individual type strings.
-    Format: "RUBRIEK:<text>;ARCHIEFSTUK:<text>"
+    Split a semicolon-separated list of PoolParty URIs and return the UUID
+    extracted from the last path segment of each.
+
+    Leading/trailing whitespace is stripped from every entry.
+    Segments that are not valid UUIDs are logged and skipped.
+
+    Example input:
+      "https://digitaalerfgoed.poolparty.biz/globalise/abc123; https://.../def456"
+    Returns:
+      ["<normalised-uuid-abc123>", "<normalised-uuid-def456>"]
     """
     if raw is None or (isinstance(raw, float) and pd.isna(raw)):
         return []
-    return [part.strip() for part in str(raw).split(";") if part.strip()]
+    results = []
+    for part in str(raw).split(";"):
+        part = part.strip()
+        if not part:
+            continue
+        segment = part.rstrip("/").rsplit("/", 1)[-1]
+        try:
+            results.append(str(uuid.UUID(segment)))
+        except ValueError:
+            logger.warning(f"  Could not extract UUID from document-type URI: {part!r}")
+    return results
 
 
 # ── database helpers ──────────────────────────────────────────────────────────
@@ -178,9 +197,15 @@ def preload_inventories(session: Session, inventory_numbers: set[str]) -> dict[s
     return result
 
 
+def preload_document_type_ids(session: Session) -> set[str]:
+    """Return the set of all document_type UUIDs present in the database."""
+    rows = session.execute(text("SELECT id FROM document_type")).all()
+    return {row[0] for row in rows}
+
+
 # ── core import ───────────────────────────────────────────────────────────────
 
-def load_xlsx() -> pd.DataFrame:
+def load_csv() -> pd.DataFrame:
     if not os.path.exists(CSV_PATH):
         logger.error(f"CSV file not found: {CSV_PATH}")
         sys.exit(1)
@@ -204,7 +229,7 @@ def bulk_insert(session: Session, table, rows: list[dict], label: str) -> int:
 
 
 def main():
-    df = load_xlsx()
+    df = load_csv()
     session = Session(engine)
 
     try:
@@ -224,7 +249,13 @@ def main():
         logger.info(f"Preloading {len(inv_numbers):,} inventories...")
         inventories = preload_inventories(session, inv_numbers)
 
+        # Preload all known document-type UUIDs for FK validation
+        known_type_ids = preload_document_type_ids(session)
+        logger.info(f"Preloaded {len(known_type_ids):,} document types.")
+
         missing_inventories: set[str] = set()
+        unknown_type_ids: set[str] = set()
+
         doc_rows: list[dict] = []
         doc_type_rows: list[dict] = []
         ext_id_rows: list[dict] = []
@@ -255,13 +286,21 @@ def main():
                 }
             )
 
-            # Document types  (split compound RUBRIEK/ARCHIEFSTUK string)
-            for doc_type in parse_document_types(row.get("DOCUMENT TYPE (TANAP)")):
+            # Document types — collect UUIDs from both URI columns, deduplicate per doc
+            type_uuids_for_doc: set[str] = set()
+            for col in ("DOCUMENT TYPE URI (TANAP)", "DOCUMENT TYPE URI (GLOBALISE)"):
+                for type_uuid in parse_type_uris(row.get(col)):
+                    if type_uuid not in known_type_ids:
+                        unknown_type_ids.add(type_uuid)
+                        continue
+                    type_uuids_for_doc.add(type_uuid)
+
+            for type_uuid in type_uuids_for_doc:
                 doc_type_rows.append(
                     {
                         "id": str(uuid.uuid4()),
                         "document_id": doc_id,
-                        "document_type": doc_type,
+                        "document_type_id": type_uuid,
                     }
                 )
 
@@ -296,15 +335,20 @@ def main():
                 f"Skipped {len(missing_inventories)} row(s) — "
                 f"inventory numbers not found in DB: {sorted(missing_inventories)}"
             )
+        if unknown_type_ids:
+            logger.warning(
+                f"Skipped {len(unknown_type_ids)} document-type UUID(s) not found in "
+                f"document_type table (run script 5 first?): {sorted(unknown_type_ids)}"
+            )
 
         logger.info(
             f"Prepared {len(doc_rows):,} documents, "
-            f"{len(doc_type_rows):,} document types, "
+            f"{len(doc_type_rows):,} document-type links, "
             f"{len(ext_id_rows):,} external IDs"
         )
 
         bulk_insert(session, Document.__table__, doc_rows, "documents")
-        bulk_insert(session, Document2Type.__table__, doc_type_rows, "document types")
+        bulk_insert(session, Document2DocumentType.__table__, doc_type_rows, "document-type links")
         bulk_insert(session, ExternalID.__table__, ext_id_rows, "external IDs")
         bulk_insert(
             session,
@@ -328,14 +372,13 @@ def main():
 if __name__ == "__main__":
 
     print("=" * 60)
-    print("GLOBALISE OBP Index Import  (script 5 of 5)")
+    print("GLOBALISE OBP Index Import  (script 6 of 6)")
     print("=" * 60)
     print(f"Source : {os.path.basename(CSV_PATH)}")
-    print(f"Sheet  : {SHEET_NAME!r}")
     print(f"DB     : {DATABASE_URL}")
     print(
-        "\nThis script requires scripts 1–4 to have been run first "
-        "(inventories, pages, hierarchy, baseline documents)."
+        "\nThis script requires scripts 1–5 to have been run first "
+        "(inventories, pages, hierarchy, baseline documents, document types)."
     )
     print("=" * 60)
 
