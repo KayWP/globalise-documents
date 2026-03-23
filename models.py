@@ -329,6 +329,33 @@ class RectoVerso(str, enum.Enum):
     RECTO = "Recto"
     VERSO = "Verso"
 
+class DocumentType(Base):
+    """A document-type concept drawn from the GLOBALISE/TANAP SKOS thesaurus."""
+ 
+    __tablename__ = "document_type"
+ 
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, comment="UUID extracted from the concept URI"
+    )
+    scheme: Mapped[str] = mapped_column(
+        String(16), index=True, comment="GLOBALISE or TANAP"
+    )
+    pref_label_nl: Mapped[str | None] = mapped_column(
+        Text, comment="Dutch skos:prefLabel"
+    )
+    pref_label_en: Mapped[str | None] = mapped_column(
+        Text, comment="English skos:prefLabel"
+    )
+ 
+    def __repr__(self) -> str:
+        return (
+            f"<DocumentType(id='{self.id}', scheme='{self.scheme}', "
+            f"nl='{self.pref_label_nl}', en='{self.pref_label_en}')>"
+        )
+ 
+    def __str__(self) -> str:
+        label = self.pref_label_en or self.pref_label_nl or self.id
+        return f"{label} [{self.scheme}]"
 
 class Page(Base):
     __tablename__ = "page"

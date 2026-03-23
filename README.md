@@ -135,6 +135,16 @@ This script implements a baseline document identification method for early moder
 
 **Note:** This is a baseline implementation. More sophisticated document identification methods can be added as additional scripts that create different DocumentIdentificationMethod records.
 
+### Step 5: Add Document Types
+
+```bash
+python 5_import_document_types.py
+# or with explicit paths:
+python 5_import_document_types.py --ttl /path/to/thesaurus.ttl --database sqlite:///globalise_documents.db
+```
+
+This script looks for document types in a `pp_project_globalisethesaurus.ttl` file and adds their UUID, the English and Dutch preflabels and whether it is a GLOBALISE or TANAP document type.
+
 ### Verify Database
 
 After running the import scripts, you should have a populated `globalise_documents.db` file.
