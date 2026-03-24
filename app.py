@@ -353,6 +353,8 @@ def prepare_timeline_data(db_session, inventory_id):
 @app.route("/documents")
 def documents():
     """List all documents."""
+    from sqlalchemy.orm import joinedload
+
     db_session = Session()
     page = request.args.get("page", 1, type=int)
     per_page = 20
@@ -371,7 +373,16 @@ def documents():
     doc_query = doc_query.order_by(desc(Document.date_earliest_begin))
 
     total = doc_query.count()
-    documents_list = doc_query.offset((page - 1) * per_page).limit(per_page).all()
+    documents_list = (
+        doc_query.options(
+            joinedload(Document.document_types).joinedload(
+                Document2DocumentType.document_type
+            ),
+        )
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
 
     total_pages = (total + per_page - 1) // per_page
 
@@ -394,10 +405,9 @@ def document_detail(document_id):
     document = get_or_404(
         db_session.query(Document)
         .options(
-            joinedload(Document.document_types_linked).joinedload(
+            joinedload(Document.document_types).joinedload(
                 Document2DocumentType.document_type
             ),
-            joinedload(Document.document_types),
         )
         .filter_by(id=document_id)
     )
@@ -741,15 +751,16 @@ def document_types():
 
     all_types = type_query.all()
 
-    # Count documents per type via Document2DocumentType
-    type_doc_counts = {}
-    for dt in all_types:
-        type_doc_counts[dt.id] = (
-            db_session.query(func.count(Document2DocumentType.id))
-            .filter(Document2DocumentType.document_type_id == dt.id)
-            .scalar()
-            or 0
+    # Count documents per type in a single query
+    count_rows = (
+        db_session.query(
+            Document2DocumentType.document_type_id,
+            func.count(Document2DocumentType.id),
         )
+        .group_by(Document2DocumentType.document_type_id)
+        .all()
+    )
+    type_doc_counts = {row[0]: row[1] for row in count_rows}
 
     schemes = [
         r[0]
@@ -771,6 +782,8 @@ def document_types():
 @app.route("/document-type/<type_id>")
 def document_type_detail(type_id):
     """Show all documents linked to a specific document type."""
+    from sqlalchemy.orm import joinedload
+
     db_session = Session()
     doc_type = get_or_404(db_session.query(DocumentType).filter_by(id=type_id))
 
@@ -784,7 +797,16 @@ def document_type_detail(type_id):
         .order_by(Document.date_earliest_begin)
     )
     total = doc_query.count()
-    documents = doc_query.offset((page - 1) * per_page).limit(per_page).all()
+    documents = (
+        doc_query.options(
+            joinedload(Document.document_types).joinedload(
+                Document2DocumentType.document_type
+            ),
+        )
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
     total_pages = (total + per_page - 1) // per_page
 
     return render_template(

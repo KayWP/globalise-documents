@@ -162,21 +162,28 @@ def page_to_jsonld(page) -> Dict[str, Any]:
 
 def document_physical_to_jsonld(document) -> Dict[str, Any]:
     base_id = f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/document:{document.id}"
-    # Classification from first document type if available
+    # Classification from document types
     if document.document_types:
-        doc_type_str = document.document_types[0].document_type
-        doc_type_slug = slugify(doc_type_str)
-        classified = {
-            "id": f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/thesaurus:{doc_type_slug}",
-            "type": "Type",
-            "_label": f"{doc_type_str} (document type)",
-        }
+        classified = []
+        for dt_link in document.document_types:
+            dt = dt_link.document_type
+            doc_type_str = dt.pref_label_en or dt.pref_label_nl or dt.id
+            doc_type_slug = slugify(doc_type_str)
+            classified.append(
+                {
+                    "id": f"https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/thesaurus:{doc_type_slug}",
+                    "type": "Type",
+                    "_label": f"{doc_type_str} (document type)",
+                }
+            )
     else:
-        classified = {
-            "id": "https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/thesaurus:unknown",
-            "type": "Type",
-            "_label": "Unknown document type",
-        }
+        classified = [
+            {
+                "id": "https://data.globalise.huygens.knaw.nl/hdl:20.500.14722/thesaurus:unknown",
+                "type": "Type",
+                "_label": "Unknown document type",
+            }
+        ]
 
     # Title object
     title_obj = None
@@ -295,7 +302,7 @@ def document_physical_to_jsonld(document) -> Dict[str, Any]:
         "id": base_id,
         "type": "PhysicalHumanMadeThing",
         "_label": f"Document {document.id}",
-        "classified_as": [classified],
+        "classified_as": classified,
         "title": title_obj,
         "produced_by": {
             "type": "Production",
@@ -824,11 +831,13 @@ def inventory_to_manifest_jsonld(inventory, manifest_uri: str) -> Dict[str, Any]
 
             # Type (from document_types)
             if doc.document_types:
-                for doc_type in doc.document_types:
+                for dt_link in doc.document_types:
+                    dt = dt_link.document_type
+                    label = dt.pref_label_en or dt.pref_label_nl or dt.id
                     doc_range["metadata"].append(
                         {
                             "label": {"en": ["Type"]},
-                            "value": {"none": [doc_type.document_type]},
+                            "value": {"none": [label]},
                         }
                     )
 

@@ -15,7 +15,7 @@ For each concept it stores:
   - pref_label_nl : Dutch skos:prefLabel
   - pref_label_en : English skos:prefLabel
 
-Requires the DocumentType model to be present in models.py (see models_addition.py).
+Requires the DocumentType model to be present in models.py.
 """
 
 import os
@@ -48,6 +48,7 @@ SCHEME_URIS = {
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _uuid_from_uri(uri: URIRef) -> str | None:
     """Extract the UUID that forms the last path segment of a PoolParty URI.
 
@@ -72,6 +73,7 @@ def _pref_label(graph: Graph, concept: URIRef, lang: str) -> str | None:
 # ---------------------------------------------------------------------------
 # Core import logic
 # ---------------------------------------------------------------------------
+
 
 def load_thesaurus(ttl_path: str) -> Graph:
     print(f"Parsing {ttl_path} …")
@@ -138,7 +140,7 @@ def import_document_types(ttl_path: str, database_url: str) -> dict:
     # Database
     # ------------------------------------------------------------------
     engine = create_engine(database_url, echo=False)
-    Base.metadata.create_all(engine)          # creates document_type table if absent
+    Base.metadata.create_all(engine)  # creates document_type table if absent
     Session = sessionmaker(bind=engine)
     session = Session()
 
@@ -182,6 +184,7 @@ def import_document_types(ttl_path: str, database_url: str) -> dict:
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
+
 
 def main() -> None:
     import argparse

@@ -187,12 +187,9 @@ class Document(Base):
         "Document", foreign_keys="Document.part_of_id", back_populates="part_of"
     )
     
-    document_types: Mapped[List["Document2Type"]] = relationship(
-        "Document2Type", back_populates="document", cascade="all, delete-orphan"
-    )
-    document_types_linked: Mapped[List["Document2DocumentType"]] = relationship(
+    document_types: Mapped[List["Document2DocumentType"]] = relationship(
         "Document2DocumentType", back_populates="document", cascade="all, delete-orphan"
-    )  # Links to DocumentType via Document2DocumentType
+    )
     external_ids: Mapped[List["Document2ExternalID"]] = relationship(
         "Document2ExternalID", back_populates="document", cascade="all, delete-orphan"
     )
@@ -214,26 +211,6 @@ class Document(Base):
             if self.title
             else f"Document {self.id}"
         )
-
-
-class Document2Type(Base):
-    __tablename__ = "document2type"
-
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
-    )
-    document_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("document.id"), index=True
-    )
-    document_type: Mapped[str] = mapped_column(String(255))
-
-    # Relationships
-    document: Mapped["Document"] = relationship(
-        "Document", back_populates="document_types"
-    )
-
-    def __repr__(self):
-        return f"<Document2Type(type='{self.document_type}')>"
 
 
 class ExternalID(Base):
@@ -322,8 +299,7 @@ class Document2DocumentType(Base):
     """
     Junction table linking a Document to a DocumentType concept from the thesaurus.
 
-    Replaces the legacy free-text Document2Type for cases where a structured
-    URI-based type is available (TANAP or GLOBALISE concept schemes).
+    Links a Document to a DocumentType concept from the SKOS thesaurus.
     """
 
     __tablename__ = "document2documenttype"
@@ -340,7 +316,7 @@ class Document2DocumentType(Base):
 
     # Relationships
     document: Mapped["Document"] = relationship(
-        "Document", back_populates="document_types_linked"
+        "Document", back_populates="document_types"
     )
     document_type: Mapped["DocumentType"] = relationship(
         "DocumentType", back_populates="document_links"
