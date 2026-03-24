@@ -12,7 +12,9 @@ from models import (
     Base,
     Inventory,
     Document,
+    Document2DocumentType,
     DocumentIdentificationMethod,
+    DocumentType,
     Scan,
     Page,
     Page2Document,
@@ -351,6 +353,8 @@ def prepare_timeline_data(db_session, inventory_id):
 @app.route("/documents")
 def documents():
     """List all documents."""
+    from sqlalchemy.orm import joinedload
+
     db_session = Session()
     page = request.args.get("page", 1, type=int)
     per_page = 20
@@ -369,7 +373,16 @@ def documents():
     doc_query = doc_query.order_by(desc(Document.date_earliest_begin))
 
     total = doc_query.count()
-    documents_list = doc_query.offset((page - 1) * per_page).limit(per_page).all()
+    documents_list = (
+        doc_query.options(
+            joinedload(Document.document_types).joinedload(
+                Document2DocumentType.document_type
+            ),
+        )
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
 
     total_pages = (total + per_page - 1) // per_page
 
@@ -386,9 +399,18 @@ def documents():
 def document_detail(document_id):
     """Show details of a specific document."""
     from sqlalchemy import case
+    from sqlalchemy.orm import joinedload
 
     db_session = Session()
-    document = get_or_404(db_session.query(Document).filter_by(id=document_id))
+    document = get_or_404(
+        db_session.query(Document)
+        .options(
+            joinedload(Document.document_types).joinedload(
+                Document2DocumentType.document_type
+            ),
+        )
+        .filter_by(id=document_id)
+    )
 
     # Get pages for this document
     # Order by scan filename, then by recto_verso (Verso before Recto for double spreads)
@@ -712,6 +734,89 @@ def method_delete(method_id):
     db_session.delete(method)
     db_session.commit()
     return redirect(url_for("methods"))
+
+
+@app.route("/document-types")
+def document_types():
+    """List all document types from the SKOS thesaurus."""
+    db_session = Session()
+
+    scheme = request.args.get("scheme", "").strip()
+
+    type_query = db_session.query(DocumentType).order_by(
+        DocumentType.scheme, DocumentType.pref_label_en, DocumentType.pref_label_nl
+    )
+    if scheme:
+        type_query = type_query.filter(DocumentType.scheme == scheme)
+
+    all_types = type_query.all()
+
+    # Count documents per type in a single query
+    count_rows = (
+        db_session.query(
+            Document2DocumentType.document_type_id,
+            func.count(Document2DocumentType.id),
+        )
+        .group_by(Document2DocumentType.document_type_id)
+        .all()
+    )
+    type_doc_counts = {row[0]: row[1] for row in count_rows}
+
+    schemes = [
+        r[0]
+        for r in db_session.query(DocumentType.scheme)
+        .distinct()
+        .order_by(DocumentType.scheme)
+        .all()
+    ]
+
+    return render_template(
+        "document_types.html",
+        document_types=all_types,
+        type_doc_counts=type_doc_counts,
+        schemes=schemes,
+        selected_scheme=scheme,
+    )
+
+
+@app.route("/document-type/<type_id>")
+def document_type_detail(type_id):
+    """Show all documents linked to a specific document type."""
+    from sqlalchemy.orm import joinedload
+
+    db_session = Session()
+    doc_type = get_or_404(db_session.query(DocumentType).filter_by(id=type_id))
+
+    page = request.args.get("page", 1, type=int)
+    per_page = 20
+
+    doc_query = (
+        db_session.query(Document)
+        .join(Document2DocumentType)
+        .filter(Document2DocumentType.document_type_id == type_id)
+        .order_by(Document.date_earliest_begin)
+    )
+    total = doc_query.count()
+    documents = (
+        doc_query.options(
+            joinedload(Document.document_types).joinedload(
+                Document2DocumentType.document_type
+            ),
+        )
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+    total_pages = (total + per_page - 1) // per_page
+
+    return render_template(
+        "document_type_detail.html",
+        doc_type=doc_type,
+        documents=documents,
+        page=page,
+        total_pages=total_pages,
+        total_docs=total,
+    )
 
 
 @app.route("/scan/<filename>/jsonld")

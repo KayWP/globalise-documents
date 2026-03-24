@@ -669,8 +669,15 @@
           <li>
             <a
               href="/documents"
-              class="{% if request.path.startswith('/document') %}active{% endif %}"
+              class="{% if request.path.startswith('/document') and not request.path.startswith('/document-type') %}active{% endif %}"
               >Documents</a
+            >
+          </li>
+          <li>
+            <a
+              href="/document-types"
+              class="{% if request.path.startswith('/document-type') %}active{% endif %}"
+              >Doc Types</a
             >
           </li>
           <li>
