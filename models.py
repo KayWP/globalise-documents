@@ -1,7 +1,7 @@
 """
 SQLAlchemy models for the GLOBALISE document archive.
 
-Entities: Series, Inventory, Document, Scan, Page, DocumentType
+Entities: Series, Inventory, Document, Scan, Page, DocumentType, Settlement
 and the junction / helper tables that connect them.
 """
 
@@ -145,6 +145,78 @@ class DocumentIdentificationMethod(Base):
         return f"{self.name} ({self.date})" if self.date else self.name
 
 
+class Settlement(Base):
+    """
+    A canonical settlement entity drawn from location_index.csv.
+
+    Each Settlement has a unique GLOBALISE identifier (glob_id, e.g. 'GLOB2_894')
+    and one or more textual labels stored in SettlementLabel.  Multiple spelling
+    variants and alternative names all resolve to the same Settlement row.
+    """
+
+    __tablename__ = "settlement"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    glob_id: Mapped[str] = mapped_column(
+        String(64),
+        unique=True,
+        index=True,
+        comment="GLOBALISE identifier, e.g. GLOB2_894",
+    )
+
+    # Relationships
+    labels: Mapped[List["SettlementLabel"]] = relationship(
+        "SettlementLabel", back_populates="settlement", cascade="all, delete-orphan"
+    )
+    documents: Mapped[List["Document"]] = relationship(
+        "Document", back_populates="settlement"
+    )
+
+    def __repr__(self) -> str:
+        return f"<Settlement(glob_id='{self.glob_id}')>"
+
+    def __str__(self) -> str:
+        # Return the first label if available, otherwise the glob_id
+        if self.labels:
+            return self.labels[0].label
+        return self.glob_id
+
+
+class SettlementLabel(Base):
+    """
+    A textual label (name or spelling variant) for a Settlement.
+
+    One Settlement may have several SettlementLabel rows — for example
+    'Banjarmasin', 'Banjermassin', and 'Banjermassing' all belong to GLOB_523.
+    The label column is indexed to support fast lookup during OBP import.
+    """
+
+    __tablename__ = "settlement_label"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    label: Mapped[str] = mapped_column(
+        String(255), index=True, comment="Settlement name or spelling variant"
+    )
+    settlement_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("settlement.id"), index=True
+    )
+
+    # Relationships
+    settlement: Mapped["Settlement"] = relationship(
+        "Settlement", back_populates="labels"
+    )
+
+    def __repr__(self) -> str:
+        return f"<SettlementLabel(label='{self.label}', settlement_id='{self.settlement_id}')>"
+
+    def __str__(self) -> str:
+        return self.label
+
+
 class Document(Base):
     __tablename__ = "document"
 
@@ -165,7 +237,11 @@ class Document(Base):
     )
     location_id: Mapped[Optional[str]] = mapped_column(
         String(36)
-    )  # Simplified - no Location table
+    )  # Simplified legacy field — no Location table
+    settlement_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("settlement.id"), index=True,
+        comment="FK to Settlement; populated from location_index.csv via OBP import"
+    )
     method_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("document_identification_method.id"), index=True
     )
@@ -186,7 +262,9 @@ class Document(Base):
     sub_documents: Mapped[List["Document"]] = relationship(
         "Document", foreign_keys="Document.part_of_id", back_populates="part_of"
     )
-    
+    settlement: Mapped[Optional["Settlement"]] = relationship(
+        "Settlement", back_populates="documents"
+    )
     document_types: Mapped[List["Document2Type"]] = relationship(
         "Document2Type", back_populates="document", cascade="all, delete-orphan"
     )
