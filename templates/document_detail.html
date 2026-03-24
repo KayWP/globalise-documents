@@ -72,9 +72,14 @@ else 'Document' }} - GLOBALISE Documents{% endblock %} {% block content %}
 <div class="card">
   <h2>Document Types</h2>
   {% for dt in document.document_types %}
-  <a href="/document-type/{{ dt.document_type.id }}" class="badge badge-primary"
-    title="{{ dt.document_type.scheme }} concept" style="text-decoration: none">
-    {{ dt.document_type.pref_label_en or dt.document_type.pref_label_nl or dt.document_type.id }}
+  <a
+    href="/document-type/{{ dt.document_type.id }}"
+    class="badge badge-primary"
+    title="{{ dt.document_type.scheme }} concept"
+    style="text-decoration: none"
+  >
+    {{ dt.document_type.pref_label_en or dt.document_type.pref_label_nl or
+    dt.document_type.id }}
     <small>({{ dt.document_type.scheme }})</small>
   </a>
   {% endfor %}

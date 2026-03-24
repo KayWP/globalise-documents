@@ -186,7 +186,7 @@ class Document(Base):
     sub_documents: Mapped[List["Document"]] = relationship(
         "Document", foreign_keys="Document.part_of_id", back_populates="part_of"
     )
-    
+
     document_types: Mapped[List["Document2DocumentType"]] = relationship(
         "Document2DocumentType", back_populates="document", cascade="all, delete-orphan"
     )

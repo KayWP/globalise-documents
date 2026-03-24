@@ -45,9 +45,13 @@ endblock %} {% block content %}
       <td>{{ doc|date_range }}</td>
       <td>
         {% for dt in doc.document_types %}
-        <a href="/document-type/{{ dt.document_type.id }}" class="badge badge-primary"
-          style="text-decoration: none; font-size: 0.8em">
-          {{ dt.document_type.pref_label_en or dt.document_type.pref_label_nl or dt.document_type.id }}
+        <a
+          href="/document-type/{{ dt.document_type.id }}"
+          class="badge badge-primary"
+          style="text-decoration: none; font-size: 0.8em"
+        >
+          {{ dt.document_type.pref_label_en or dt.document_type.pref_label_nl or
+          dt.document_type.id }}
         </a>
         {% endfor %}
       </td>
