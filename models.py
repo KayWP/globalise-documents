@@ -457,7 +457,9 @@ class Scan(Base):
     )
     height: Mapped[int] = mapped_column(Integer)
     width: Mapped[int] = mapped_column(Integer)
-    scan_type: Mapped[Optional[PageType]] = mapped_column(SQLEnum(PageType))
+    scan_type: Mapped[Optional[PageType]] = mapped_column(
+        SQLEnum(PageType, values_callable=lambda obj: [e.value for e in obj])
+    )
 
     # Relationships
     inventory: Mapped["Inventory"] = relationship("Inventory", back_populates="scans")
@@ -496,7 +498,9 @@ class Page(Base):
         String(36), primary_key=True, default=lambda: str(uuid.uuid4())
     )
     page_or_folio_number: Mapped[Optional[str]] = mapped_column(String(255))
-    recto_verso: Mapped[Optional[RectoVerso]] = mapped_column(SQLEnum(RectoVerso))
+    recto_verso: Mapped[Optional[RectoVerso]] = mapped_column(
+        SQLEnum(RectoVerso, values_callable=lambda obj: [e.name for e in obj])
+    )
     header: Mapped[Optional[str]] = mapped_column(Text)
     inventory_id: Mapped[Optional[str]] = mapped_column(
         String(36), ForeignKey("inventory.id"), index=True
