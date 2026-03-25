@@ -20,7 +20,7 @@ Mapped:
   ID                                   → ExternalID(context="OBP_INDEX")
   ID (TANAP)                           → ExternalID(context="TANAP")           [nullable]
   ID (DIGITIZED TYPOSCRIPTS)           → ExternalID(context="DIGITIZED TYPOSCRIPTS") [nullable]
-  SETTLEMENT                           → Document.settlement_id via SettlementLabel
+  SETTLEMENT                           → Document.location_id via SettlementLabel
                                           lookup (script 6 must have run first);
                                           left NULL when label is not in the table.
 
@@ -356,8 +356,7 @@ def main():
                     "date_latest_end": year_to_end(row.get("YEAR (LATEST)")),
                     "date_text": None,
                     "part_of_id": None,
-                    "location_id": None,
-                    "settlement_id": settlement_id,   # NULL when not found
+                    "location_id": settlement_id,     # NULL when not found in settlement_label
                     "method_id": method_id,
                 }
             )

@@ -171,7 +171,7 @@ class Settlement(Base):
         "SettlementLabel", back_populates="settlement", cascade="all, delete-orphan"
     )
     documents: Mapped[List["Document"]] = relationship(
-        "Document", back_populates="settlement"
+        "Document", back_populates="location"
     )
 
     def __repr__(self) -> str:
@@ -236,9 +236,6 @@ class Document(Base):
         String(36), ForeignKey("document.id"), index=True
     )
     location_id: Mapped[Optional[str]] = mapped_column(
-        String(36)
-    )  # Simplified legacy field — no Location table
-    settlement_id: Mapped[Optional[str]] = mapped_column(
         String(36), ForeignKey("settlement.id"), index=True,
         comment="FK to Settlement; populated from location_index.csv via OBP import"
     )
@@ -262,7 +259,7 @@ class Document(Base):
     sub_documents: Mapped[List["Document"]] = relationship(
         "Document", foreign_keys="Document.part_of_id", back_populates="part_of"
     )
-    settlement: Mapped[Optional["Settlement"]] = relationship(
+    location: Mapped[Optional["Settlement"]] = relationship(
         "Settlement", back_populates="documents"
     )
     document_types: Mapped[List["Document2Type"]] = relationship(

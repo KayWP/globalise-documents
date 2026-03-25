@@ -60,10 +60,20 @@ else 'Document' }} - GLOBALISE Documents{% endblock %} {% block content %}
       ></span
     >
   </div>
-  {% endif %} {% if document.location_id %}
+  {% endif %}
+  {% if document.location %}
   <div class="info-row">
-    <strong>Location:</strong>
-    <span>{{ document.location_id }}</span>
+    <strong>Settlement:</strong>
+    <span>
+      {% set labels = document.location.labels | map(attribute='label') | list %}
+      {{ labels[0] }}
+      {% if labels | length > 1 %}
+      <small style="color: var(--text-muted);">
+        (also: {{ labels[1:] | join(', ') }})
+      </small>
+      {% endif %}
+      <small style="color: var(--text-muted);">[{{ document.location.glob_id }}]</small>
+    </span>
   </div>
   {% endif %}
 </div>
