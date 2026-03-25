@@ -201,7 +201,7 @@ def main() -> None:
     csv_path = Path(args.csv) if args.csv else DEFAULT_CSV
 
     print("=" * 60)
-    print("GLOBALISE — Settlement Import  (step 6 of 7)")
+    print("GLOBALISE — Settlement Import  (step 6 of 8)")
     print("=" * 60)
     print(f"Source : {csv_path}")
     print(f"DB     : {args.database}")

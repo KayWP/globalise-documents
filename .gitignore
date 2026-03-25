@@ -216,3 +216,4 @@ data/*.json
 
 # ignore database
 globalise_documents.db
+globalise_documents - Copy.db

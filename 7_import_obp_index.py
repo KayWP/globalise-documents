@@ -23,11 +23,12 @@ Mapped:
   SETTLEMENT                           → Document.location_id via SettlementLabel
                                           lookup (script 6 must have run first);
                                           left NULL when label is not in the table.
+  FOLIONUMBER (START OF DOCUMENT)      → Document.folio_start
+  FOLIONUMBER (END OF DOCUMENT)        → Document.folio_end
 
 Not mapped (no corresponding schema field):
   SECTION
   DOCUMENT TYPE (TANAP)                (legacy label column — superseded by URI columns)
-  FOLIONUMBER (START / END OF DOCUMENT)
   FOLIONUMBERS (AS THEY APPEAR IN TYPOSCRIPT)
   YEARS (ALL)
   LOCATION (TANAP)
@@ -113,6 +114,16 @@ def int_or_none(value) -> Optional[str]:
         return None
     try:
         return str(int(value))
+    except (ValueError, TypeError):
+        return None
+
+
+def int_field(value) -> Optional[int]:
+    """Return a Python int or None; safe against NaN and non-numeric values."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    try:
+        return int(value)
     except (ValueError, TypeError):
         return None
 
@@ -357,6 +368,8 @@ def main():
                     "date_text": None,
                     "part_of_id": None,
                     "location_id": settlement_id,     # NULL when not found in settlement_label
+                    "folio_start": int_field(row.get("FOLIONUMBER (START OF DOCUMENT)")),
+                    "folio_end": int_field(row.get("FOLIONUMBER (END OF DOCUMENT)")),
                     "method_id": method_id,
                 }
             )

@@ -239,6 +239,14 @@ class Document(Base):
         String(36), ForeignKey("settlement.id"), index=True,
         comment="FK to Settlement; populated from location_index.csv via OBP import"
     )
+    folio_start: Mapped[Optional[int]] = mapped_column(
+        Integer, index=True,
+        comment="First folio number of the document as recorded in the OBP index"
+    )
+    folio_end: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        comment="Last folio number of the document as recorded in the OBP index"
+    )
     method_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("document_identification_method.id"), index=True
     )
@@ -536,10 +544,24 @@ class Page2Document(Base):
         String(36), ForeignKey("document.id"), index=True
     )
     index: Mapped[int] = mapped_column(Integer)
+    source: Mapped[str] = mapped_column(
+        String(32),
+        default="BASELINE",
+        server_default="BASELINE",
+        comment="How this page-document link was established: BASELINE or FOLIO_RANGE",
+    )
+    confidence: Mapped[float] = mapped_column(
+        default=1.0,
+        server_default="1.0",
+        comment="Confidence of the link: 1.0 = definitive (BASELINE), 0.0-1.0 = indicative",
+    )
 
     # Relationships
     page: Mapped["Page"] = relationship("Page", back_populates="documents")
     document: Mapped["Document"] = relationship("Document", back_populates="pages")
 
     def __repr__(self):
-        return f"<Page2Document(page_id='{self.page_id}', document_id='{self.document_id}', index={self.index})>"
+        return (
+            f"<Page2Document(page_id='{self.page_id}', document_id='{self.document_id}', "
+            f"index={self.index}, source='{self.source}', confidence={self.confidence})>"
+        )
