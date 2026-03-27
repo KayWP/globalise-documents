@@ -377,7 +377,7 @@ def documents():
     total = doc_query.count()
     documents_list = (
         doc_query.options(
-            joinedload(Document.document_types).joinedload(
+            joinedload(Document.document_types_linked).joinedload(
                 Document2DocumentType.document_type
             ),
         )
@@ -407,7 +407,7 @@ def document_detail(document_id):
     document = get_or_404(
         db_session.query(Document)
         .options(
-            joinedload(Document.document_types).joinedload(
+            joinedload(Document.document_types_linked).joinedload(
                 Document2DocumentType.document_type
             ),
         )
@@ -878,7 +878,7 @@ def document_type_detail(type_id):
     total = doc_query.count()
     documents = (
         doc_query.options(
-            joinedload(Document.document_types).joinedload(
+            joinedload(Document.document_types_linked).joinedload(
                 Document2DocumentType.document_type
             ),
         )
